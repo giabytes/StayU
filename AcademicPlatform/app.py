@@ -31,7 +31,7 @@ def process_data():
     return jsonify({
         "id": student_id,
         "new_average": round(new_average, 2),
-        "new_attendance": new_attendance
+        "new_attendance": round(new_attendance, 2)
     })
         
 if __name__=='__main__':
