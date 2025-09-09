@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+enum Role {
+  STUDENT
+  PROFESSOR
+  ACADEMIC_COORDINATOR
+  WELLBEING_STAFF
+}
+
+model Professor {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  email String @unique
+  name  String?
+  role  Role
+}
+
+model AcademicCoordinator {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  email String @unique
+  name  String?
+  role  Role
+}
+
+model WellbeingStaff {
+  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  email String @unique
+  name  String?
+  role  Role
+}
+
+model Student {
+  id              String  @id @default(auto()) @map("_id") @db.ObjectId
+  email String @unique
+  name  String?
+  role  Role
+  academic_program String? // Corresponde a 'Programa académico'
+  birth_date      String? // Corresponde a 'Fecha de nacimiento', se puede guardar como String o DateTime
+  citizen_id      String? // Corresponde a 'Cédula de ciudadanía'
+  phone_number    String? // Corresponde a 'Celular'
+  risk_level      Float?  // 'Riesgo de deserción'
+}
+
+model StudentRecord {
+  id            String  @id @default(auto()) @map("_id") @db.ObjectId
+  student_id    String  @unique
+  average       Float
+  attendance    Int     @db.Int       // 0 a 100
+  amount_due    Float
+  amount_paid   Float
+  late_payment  Boolean
+  risk_level    Float?
+}
