@@ -66,6 +66,7 @@ export class DataBaseService extends PrismaClient implements OnModuleInit, OnMod
 
    // Métodos CRUD para el modelo Student
   async createStudent(data: {
+    student_id: string;
     email: string;
     name?: string;
     role: any;
@@ -82,11 +83,12 @@ export class DataBaseService extends PrismaClient implements OnModuleInit, OnMod
     return this.student.findMany();
   }
 
-  async getStudentById(id: string) {
-    return this.student.findUnique({ where: { id } });
+  async getStudentById(student_id: string) {
+    return this.student.findUnique({ where: { student_id } });
   }
 
-  async updateStudent(id: string, updateData: Partial<{
+  async updateStudent(student_id: string, updateData: Partial<{
+    student_id?: string;
     email?: string;
     name?: string;
     role?: any;
@@ -97,7 +99,7 @@ export class DataBaseService extends PrismaClient implements OnModuleInit, OnMod
     risk_level?: number;
   }>) {
     return this.student.update({
-      where: { id },
+      where: { student_id },
       data: updateData,
     });
   }

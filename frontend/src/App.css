@@ -1,0 +1,106 @@
+.app-container {
+  font-family: Arial, sans-serif;
+  background: #f8f9fa;
+  min-height: 100vh;
+}
+
+.app-header {
+  background: #0a3c73;
+  color: white;
+  display: flex;
+  align-items: center;
+  padding: 10px 20px;
+  gap: 15px;
+}
+
+.app-header h1 {
+  flex: 1;
+}
+
+.search-input {
+  flex: 2;
+  padding: 5px;
+  border-radius: 5px;
+  border: none;
+}
+
+.logout-btn {
+  background: #e0f2f1;
+  color: #0a3c73;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.students-list {
+  padding: 20px;
+}
+
+.student-card {
+  display: flex;
+  align-items: center;
+  background: white;
+  padding: 12px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0px 2px 5px rgba(0,0,0,0.1);
+}
+
+.student-card:hover {
+  background: #f1f5f9;
+}
+
+.student-photo {
+  width: 50px;
+  border-radius: 50%;
+  margin-right: 15px;
+}
+
+.student-info h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.risk {
+  margin-left: auto;
+  font-weight: bold;
+  font-size: 18px;
+}
+
+.student-detail {
+  padding: 20px;
+}
+
+.back-btn {
+  background: transparent;
+  border: none;
+  color: #0a3c73;
+  font-size: 16px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.detail-card {
+  display: flex;
+  background: white;
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0px 2px 5px rgba(0,0,0,0.1);
+}
+
+.student-photo-large {
+  width: 120px;
+  border-radius: 12px;
+  margin-right: 20px;
+}
+
+.detail-info p {
+  margin: 6px 0;
+}
+
+.risk-text {
+  font-size: 18px;
+  font-weight: bold;
+}
