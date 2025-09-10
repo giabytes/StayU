@@ -65,7 +65,7 @@ def calculate_risk_score():
             {"$set": {"risk_score": risk_score}}
         )
         url_user="http://localhost:3000/students/"+record["student_id"]
-        response = requests.put(url_user, json={"risk_score": risk_score})
+        response = requests.put(url_user, json={"risk_level": risk_score})
 
     return jsonify({"mensaje": "Puntajes de riesgo calculados y actualizados con exito"})
 
