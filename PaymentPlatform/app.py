@@ -1,7 +1,9 @@
 from flask import Flask, request, jsonify
 import random
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)  # habilita CORS en todas las rutas
 
 @app.route('/api/payment', methods=['POST'])
 def process_data():

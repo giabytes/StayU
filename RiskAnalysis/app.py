@@ -7,8 +7,11 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)  # habilita CORS en todas las rutas
+
 
 # Conexión a MongoDB Atlas
 MONGO_URI = "mongodb+srv://StayU:5uGz8MahKxt6jMOl@cluster0.2t8eyyc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
@@ -61,6 +64,9 @@ def calculate_risk_score():
             {"_id": ObjectId(record["_id"])},
             {"$set": {"risk_score": risk_score}}
         )
+        url_user="http://localhost:3000/students/"+record["student_id"]
+        response = requests.put(url_user, json={"risk_score": risk_score})
+
     return jsonify({"mensaje": "Puntajes de riesgo calculados y actualizados con exito"})
 
 @app.route('/risk-analysis/update-data-and-risk', methods=['GET'])
@@ -150,6 +156,24 @@ def create_or_update_record():
 @app.route('/risk-analysis/calculate-risk', methods=['GET'])
 def calculate_risk():
     return calculate_risk_score()
+
+@app.route('/risk-analysis/get-record/<student_id>', methods=['GET'])
+def get_student_record(student_id):
+    """
+    Busca y devuelve el registro de un estudiante específico por su ID.
+    """
+    record = students_collection.find_one({"student_id": student_id})
+    if record:
+        record.pop("_id", None)
+        return jsonify(record)
+    else:
+        return jsonify({"error": f"No se encontró un registro para el student_id: {student_id}"}), 404
+
+
+@app.route('/risk-analysis/get-all-records', methods=['GET'])
+def get_all_records():
+    records = get_records_from_db()
+    return jsonify(records)
 
 if __name__ == '__main__':
     app.run(port=5002, debug=True)

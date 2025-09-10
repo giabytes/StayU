@@ -42,6 +42,7 @@ model WellbeingStaff {
 
 model Student {
   id              String  @id @default(auto()) @map("_id") @db.ObjectId
+  student_id      String  @unique
   email String @unique
   name  String?
   role  Role

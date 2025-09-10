@@ -21,9 +21,14 @@ export class StudentsController {
     return this.dbService.getStudentById(id);
   }
   
-  @Put(':id')
+ /* @Put(':id')
   async update(@Param('id') id: string, @Body() body: any) {
     return this.dbService.updateStudent(id, body);
+  }*/
+
+  @Put(':student_id')
+  async update_student_id(@Param('student_id') student_id: string, @Body() body: any) {
+    return this.dbService.updateStudent(student_id, body);
   }
 
   @Delete(':id')
