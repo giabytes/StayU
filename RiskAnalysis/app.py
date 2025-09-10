@@ -129,7 +129,7 @@ def create_or_update_record():
 
     # Construimos el documento
     record = {
-        "student_id": student_id,
+        "student_id": str(student_id),
         "average": data.get("average"),
         "attendance": data.get("attendance"),
         "amount_due": data.get("amount_due", 0.0),
@@ -146,6 +146,18 @@ def create_or_update_record():
     )
 
     return jsonify({"mensaje": "Registro guardado/actualizado con exito"})
+
+@app.route('/risk-analysis/get-record/<student_id>', methods=['GET'])
+def get_student_record(student_id):
+    """
+    Busca y devuelve el registro de un estudiante específico por su ID.
+    """
+    record = students_collection.find_one({"student_id": student_id})
+    if record:
+        record.pop("_id", None)
+        return jsonify(record)
+    else:
+        return jsonify({"error": f"No se encontró un registro para el student_id: {student_id}"}), 404
 
 @app.route('/risk-analysis/calculate-risk', methods=['GET'])
 def calculate_risk():
