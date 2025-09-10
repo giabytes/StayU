@@ -20,8 +20,9 @@
 .search-input {
   flex: 2;
   padding: 5px;
-  border-radius: 5px;
+  border-radius: 20px;
   border: none;
+  text-align: center;
 }
 
 .logout-btn {
@@ -29,8 +30,9 @@
   color: #0a3c73;
   border: none;
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: 20px;
   cursor: pointer;
+  font-weight: bold;
 }
 
 .students-list {
@@ -67,6 +69,7 @@
   margin-left: auto;
   font-weight: bold;
   font-size: 18px;
+  color: red;
 }
 
 .student-detail {
@@ -103,4 +106,61 @@
 .risk-text {
   font-size: 18px;
   font-weight: bold;
+}
+
+/* ====================== */
+/* NUEVA SECCIÓN PROGRAM RISK */
+/* ====================== */
+
+.main-content {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px;
+}
+
+.program-risk {
+  background: #1c1c1c;
+  color: white;
+  padding: 15px;
+  border-radius: 15px;
+  width: 350px;
+  max-height: 400px;
+  overflow-y: auto;
+  box-shadow: 0px 2px 8px rgba(0,0,0,0.2);
+}
+
+.program-risk h3 {
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #444;
+  padding-bottom: 8px;
+}
+
+.program-risk ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.program-risk-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #e5e5e5;
+  color: black;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.program-name {
+  font-weight: bold;
+  color: #0a3c73; /* azul para el nombre */
+}
+
+.program-risk-score {
+  font-weight: bold;
+  color: red;
 }
