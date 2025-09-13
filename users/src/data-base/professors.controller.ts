@@ -1,4 +1,13 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, HttpCode } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  HttpCode,
+} from '@nestjs/common';
 import { DataBaseService } from './data-base.service';
 
 @Controller('professors')
@@ -19,7 +28,7 @@ export class ProfessorsController {
   async findOne(@Param('id') id: string) {
     return this.dbService.getProfessorById(id);
   }
-  
+
   @Put(':id')
   async update(@Param('id') id: string, @Body() body: any) {
     return this.dbService.updateProfessor(id, body);

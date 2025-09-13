@@ -1,5 +1,14 @@
 // src/data-base/data-base.controller.ts
-import { Body, Controller, Delete, Get, Param, Post, Put, HttpCode } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  HttpCode,
+} from '@nestjs/common';
 import { DataBaseService } from './data-base.service';
 
 @Controller('students')
@@ -20,14 +29,17 @@ export class StudentsController {
   async findOne(@Param('id') id: string) {
     return this.dbService.getStudentById(id);
   }
-  
- /* @Put(':id')
+
+  /* @Put(':id')
   async update(@Param('id') id: string, @Body() body: any) {
     return this.dbService.updateStudent(id, body);
   }*/
 
   @Put(':student_id')
-  async update_student_id(@Param('student_id') student_id: string, @Body() body: any) {
+  async update_student_id(
+    @Param('student_id') student_id: string,
+    @Body() body: any,
+  ) {
     return this.dbService.updateStudent(student_id, body);
   }
 
@@ -36,6 +48,4 @@ export class StudentsController {
   async delete(@Param('id') id: string) {
     await this.dbService.deleteStudent(id);
   }
-
-  
 }

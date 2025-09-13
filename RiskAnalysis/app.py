@@ -4,10 +4,6 @@ from pymongo import MongoClient
 from bson import ObjectId
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
-from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)  # habilita CORS en todas las rutas
