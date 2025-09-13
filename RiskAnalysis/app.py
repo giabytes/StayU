@@ -4,7 +4,7 @@ from pymongo import MongoClient
 from bson import ObjectId
 import pandas as pd
 import numpy as np
-
+from flask_cors import CORS
 app = Flask(__name__)
 CORS(app)  # habilita CORS en todas las rutas
 
