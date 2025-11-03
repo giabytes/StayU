@@ -17,5 +17,3 @@ import { WellbeingStaffController } from './wellbeing-staff.controller';
   providers: [DataBaseService],
 })
 export class DataBaseModule {}
-
-

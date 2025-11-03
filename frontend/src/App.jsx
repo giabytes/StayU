@@ -1,12 +1,22 @@
+// App.jsx
+
 import React, { useEffect, useState } from "react";
 import StudentCard from "./components/StudentCard";
 import StudentDetail from "./components/StudentDetail";
+import ProgramStats from "./components/ProgramStats"; // 🔹 Importar nuevo componente
 import "./App.css";
+
+// 🔹 Constantes para las vistas
+const VIEW_STUDENTS = "students";
+const VIEW_STATS = "stats";
 
 function App() {
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [programRisk, setProgramRisk] = useState([]); // 🔹 nuevo estado
+  // Eliminamos programRisk (lo obtiene ProgramStats), pero añadimos la vista
+  const [currentView, setCurrentView] = useState(VIEW_STUDENTS); // 🔹 Nuevo estado de vista
+  const [statsReport, setStatsReport] = useState(null); // 🔹 Para guardar el reporte completo
+  const [selectedProgram, setSelectedProgram] = useState(null); // 🔹 Para el detalle de programa
 
   useEffect(() => {
     const fetchData = async () => {
@@ -17,11 +27,11 @@ function App() {
         });
         const studentsData = await resStudents.json();
 
-        // 2. Traer records de riesgo
+        // 2. Traer records de riesgo (y disparar cálculo si necesario, como estaba)
         const resRecords = await fetch("http://localhost:5002/risk-analysis/calculate-risk", {
           method: "GET"
         });
-        await resRecords.json(); // dispara el cálculo
+        await resRecords.json();
 
         const resUpdated = await fetch("http://localhost:5002/risk-analysis/get-all-records", {
           method: "GET"
@@ -37,9 +47,11 @@ function App() {
           const record = updatedData?.updated_data?.find(
             (r) => r.student_id === student.student_id
           );
+          // Usamos 'risk_level' de los datos originales o calculados
+          const risk = record?.risk_level ?? 0; 
           return {
             ...student,
-            risk_score: record?.risk_score ?? 0,
+            risk_level: risk, // Usar risk_level para el StudentCard
           };
         });
 
@@ -63,51 +75,118 @@ const programData = Object.entries(riskByProgram).map(([program, data]) => ({
 
 setProgramRisk(programData);
 
+        // NOTA: Se elimina la lógica anterior de cálculo de riesgo por programa
+        // porque ahora viene del endpoint /latest
+        
       } catch (err) {
         console.error("Error cargando datos", err);
+        // Si el reporte falla, intentamos generarlo (opcional, para inicialización)
+        // Opcional: Llamar a /generate si /latest falla al inicio
       }
     };
 
     fetchData();
   }, []);
 
+  // 🔹 Función para cambiar a la vista de estudiantes
+  const showStudents = () => {
+    setCurrentView(VIEW_STUDENTS);
+    setSelectedProgram(null);
+  }
+
+  // 🔹 Función para cambiar a la vista de estadísticas
+  const showStats = () => {
+    setCurrentView(VIEW_STATS);
+    setSelectedProgram(null);
+  }
+
+  // 🔹 Función para ver el detalle de un programa (usada en ProgramStats)
+  const viewProgramDetail = (programData) => {
+    setSelectedProgram(programData);
+  }
+
+
+  // --- Renderizado Condicional ---
+
+  let content;
+  
+  // 1. Detalle del estudiante
+  if (selectedStudent) {
+    content = (
+      <StudentDetail 
+        student={selectedStudent} 
+        onBack={() => setSelectedStudent(null)} 
+      />
+    );
+  } 
+  // 2. Vista de Estadísticas (General o Detalle de Programa)
+  else if (currentView === VIEW_STATS) {
+    content = (
+      <ProgramStats
+        report={statsReport}
+        onBack={showStudents} // Vuelve a la lista de estudiantes
+        selectedProgram={selectedProgram}
+        onSelectProgram={viewProgramDetail}
+        onBackToGeneral={() => setSelectedProgram(null)} // Vuelve a la general
+      />
+    );
+  }
+  // 3. Lista de Estudiantes (vista por defecto)
+  else { 
+    content = (
+      <div className="main-content">
+        <div className="students-list">
+          <h2>Estudiantes en riesgo de deserción</h2>
+          {students.map((s) => (
+            <StudentCard
+              key={s.student_id}
+              student={s}
+              onClick={() => setSelectedStudent(s)}
+            />
+          ))}
+        </div>
+        {/* Eliminamos la sección program-risk de App.jsx */}
+      </div>
+    );
+  }
+
+
   return (
     <div className="app-container">
       <header className="app-header">
         <h1>StayU</h1>
+        <div className="nav-buttons">
+            <button 
+                className={`nav-btn ${currentView === VIEW_STUDENTS ? 'active' : ''}`}
+                onClick={showStudents}
+            >
+                Estudiantes
+            </button>
+            <button 
+                className={`nav-btn ${currentView === VIEW_STATS ? 'active' : ''}`}
+                onClick={showStats}
+            >
+                Estadísticas
+            </button>
+        </div>
         <input className="search-input" placeholder="Buscar estudiante" />
         <button className="logout-btn">Cerrar sesión</button>
       </header>
+      
+      {content}
 
-      {!selectedStudent ? (
-        <div className="main-content">
-          <div className="students-list">
-            <h2>Estudiantes en riesgo de deserción</h2>
-            {students.map((s) => (
-              <StudentCard
-                key={s.student_id}
-                student={s}
-                onClick={() => setSelectedStudent(s)}
-              />
-            ))}
-          </div>
-
-          {/* 🔹 Nueva sección */}
-          <div className="program-risk">
-            <h3>Riesgo de deserción por programa académico</h3>
-            <ul>
-              {programRisk.map((p, idx) => (
-                <li key={idx} className="program-risk-item">
-                  <span className="program-name">{p.program}</span>
-                  <span className="program-risk-score">{p.avgRisk}%</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      ) : (
-        <StudentDetail student={selectedStudent} onBack={() => setSelectedStudent(null)} />
-      )}
+      {/* 🔹 Estilos para los botones de navegación (sugeridos) */}
+      <style jsx>{`
+        .nav-buttons {
+          display: flex;
+          gap: 10px;
+          margin-left: 20px;
+        }
+        .nav-btn.active {
+          background-color: #646cff;
+          color: white;
+        }
+      `}</style>
     </div>
   );
 }
