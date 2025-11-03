@@ -2,12 +2,21 @@ from flask import Flask, request, jsonify
 import requests
 from pymongo import MongoClient
 from bson import ObjectId
-import pandas as pd
 import numpy as np
 from flask_cors import CORS
-app = Flask(__name__)
-CORS(app)  # habilita CORS en todas las rutas
+import joblib
+import pandas as pd
+from sklearn.linear_model import LinearRegression 
 
+app = Flask(__name__)
+CORS(app) 
+
+try:
+    MODEL = joblib.load('risk_model.pkl')
+    print("Modelo de Regresión Lineal Múltiple cargado exitosamente en memoria :))))")
+except Exception as e:
+    print(f"Error al cargar el modelo: {e}")
+    MODEL = None # Si falla, la API no podrá predecir
 
 # Conexión a MongoDB Atlas
 MONGO_URI = "mongodb+srv://StayU:5uGz8MahKxt6jMOl@cluster0.2t8eyyc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
@@ -25,45 +34,74 @@ def get_records_from_db():
     return records
 
 def calculate_risk_score():
-    # Cargar datos desde MongoDB
-    # Usar heurística simple para calcular riesgo
+    if MODEL is None:
+        return jsonify({"error": "El modelo de riesgo no está cargado. No se puede realizar la predicción."}), 500
+
+     # 1. Obtener todos los registros de la base de datos
     records = list(students_collection.find())
     if not records:
-        return jsonify({"error": "No hay registros disponibles para analisis"}), 400
+        return jsonify({"error": "No hay registros disponibles para el análisis."}), 400
 
+    # 2. Preparar datos para el modelo ML
+    data_for_df = []
+    # Lista para mantener los IDs en el mismo orden que las filas del DataFrame
+    ids_for_update = [] 
+    
     for record in records:
-        risk_score = 0
-        # Riesgo académico
-        if record.get("average", 0) < 3.0:
-            risk_score += 0.3
-        elif record.get("average", 0) < 4.0:
-            risk_score += 0.2
-        
-        # Riesgo de asistencia
-        if record.get("attendance", 100) < 75:
-            risk_score += 0.3
-        elif record.get("attendance", 100) < 90:
-            risk_score += 0.1
-        
-        # Riesgo financiero
-        if record.get("amount_due", 0) > record.get("amount_paid", 0):
-            risk_score += 0.2
-        
-        if record.get("late_payment", False):
-            risk_score += 0.2
-        
-        # Normalizamos a máximo 1
-        risk_score = min(risk_score, 1.0)
-        
-        # Actualizar el registro con el nivel de riesgo
-        students_collection.update_one(
-            {"_id": ObjectId(record["_id"])},
-            {"$set": {"risk_score": risk_score}}
-        )
-        url_user="http://localhost:3000/students/"+record["student_id"]
-        response = requests.put(url_user, json={"risk_level": risk_score})
+        try:
+        # Crear el diccionario de características. Los nombres de las claves deben coincidir 
+        # exactamente con los utilizados durante el entrenamiento del modelo.
+            features = {
+                'average': record['average'],
+                'attendance': record['attendance'],
+                'amount_due': record['amount_due'],
+                'amount_paid': record['amount_paid'],
+                # Convertir booleano 'late_payment' a entero 0 o 1
+                'late_payment': 1 if record['late_payment'] else 0
+            }
+            data_for_df.append(features)
+            
+            # Guardar los IDs necesarios para la actualización posterior
+            ids_for_update.append({
+                '_id': record['_id'],
+                'student_id': record['student_id']
+            })
+        except KeyError:
+            # Si a un registro le faltan campos clave, lo saltamos y lo notificamos
+            print(f"Advertencia: Registro con student_id {record.get('student_id', 'desconocido')} omitido por datos incompletos.")
+            continue 
 
-    return jsonify({"mensaje": "Puntajes de riesgo calculados y actualizados con exito"})
+    if not data_for_df:
+        return jsonify({"error": "No hay registros con datos completos para la predicción ML."}), 400
+
+    df_features = pd.DataFrame(data_for_df)
+
+    # 3. Predecir el puntaje de riesgo usando el modelo cargado
+    predicted_risk_scores = MODEL.predict(df_features)
+
+    # 4. Actualizar MongoDB y el servicio de usuario
+    # Iterar sobre las predicciones
+    for i, score in enumerate(predicted_risk_scores):
+        
+        record_ids = ids_for_update[i]
+        
+        # Asegurar que el puntaje sea no negativo (LinearRegression puede dar valores < 0)
+        final_score = max(0.0, float(score)) 
+        rounded_score = round(final_score, 2)
+        
+        # A. Actualizar el registro en MongoDB
+        students_collection.update_one(
+            {"_id": record_ids['_id']},
+            {"$set": {"risk_score": rounded_score}}
+        )
+        
+        # B. Enviar el nivel de riesgo al microservicio de usuario
+        url_user = "http://localhost:3000/students/" + record_ids['student_id']
+        requests.put(url_user, json={"risk_level": rounded_score})
+
+    return jsonify({"mensaje": "Puntajes de riesgo calculados y actualizados con el modelo ML."})
+
+
 
 @app.route('/risk-analysis/update-data-and-risk', methods=['GET'])
 def update_data_and_risk():

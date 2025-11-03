@@ -38,6 +38,10 @@ function App() {
         });
         const updatedData = await resUpdated.json();
 
+        // Verifica en consola cómo viene la respuesta
+        console.log("Estudiantes DB:", studentsData);
+        console.log("Datos riesgo DB:", updatedData);
+
         // 3. Hacer merge por student_id
         const merged = studentsData.map((student) => {
           const record = updatedData?.updated_data?.find(
@@ -53,12 +57,23 @@ function App() {
 
         setStudents(merged);
 
-        // 4. Traer el último reporte de estadísticas 🔹 NUEVA LLAMADA
-        const resStats = await fetch("http://localhost:5003/statistics/latest", {
-          method: "GET"
-        });
-        const statsData = await resStats.json();
-        setStatsReport(statsData); // Guardar reporte completo
+        // 4. Calcular riesgo por programa académico
+const riskByProgram = {};
+merged.forEach((s) => {
+  if (!riskByProgram[s.academic_program]) {
+    riskByProgram[s.academic_program] = { total: 0, count: 0 };
+  }
+  riskByProgram[s.academic_program].total += s.risk_level; // sigue en [0,1]
+  riskByProgram[s.academic_program].count += 1;
+});
+
+// Transformar en array con promedio
+const programData = Object.entries(riskByProgram).map(([program, data]) => ({
+  program,
+  avgRisk: Math.round((data.total / data.count)), // convertir a porcentaje
+}));
+
+setProgramRisk(programData);
 
         // NOTA: Se elimina la lógica anterior de cálculo de riesgo por programa
         // porque ahora viene del endpoint /latest

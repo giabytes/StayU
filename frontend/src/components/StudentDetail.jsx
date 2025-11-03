@@ -16,8 +16,8 @@ export default function StudentDetail({ student, onBack }) {
           <p><strong>Celular:</strong> {student.phone_number}</p>
           <p className="risk-text">
             Riesgo de deserción:{" "}
-            <span style={{ color: student.risk_level > 0.5 ? "red" : student.risk_level > 0.3 ? "orange" : "green" }}>
-              {(student.risk_level * 100).toFixed(0)}%
+            <span style={{ color: student.risk_level > 50.0 ? "red" : student.risk_level > 30.0 ? "orange" : "green" }}>
+              {(student.risk_level).toFixed(0)}%
             </span>
           </p>
 
