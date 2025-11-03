@@ -28,7 +28,7 @@ function App() {
         });
         const updatedData = await resUpdated.json();
 
-        // ⚠️ Verifica en consola cómo viene la respuesta
+        // Verifica en consola cómo viene la respuesta
         console.log("Estudiantes DB:", studentsData);
         console.log("Datos riesgo DB:", updatedData);
 
@@ -58,7 +58,7 @@ merged.forEach((s) => {
 // Transformar en array con promedio
 const programData = Object.entries(riskByProgram).map(([program, data]) => ({
   program,
-  avgRisk: Math.round((data.total / data.count) * 100), // convertir a porcentaje
+  avgRisk: Math.round((data.total / data.count)), // convertir a porcentaje
 }));
 
 setProgramRisk(programData);
