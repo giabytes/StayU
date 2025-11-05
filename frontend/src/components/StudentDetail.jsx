@@ -5,7 +5,7 @@ import AppHeader from "./AppHeader"; // Header igual que en App.jsx
 export default function StudentDetail({ student, onBack, logout }) {
   const whatsappLink = `https://wa.me/57${student.phone_number}?text=Hola%20${student.name},%0A%0AEscribimos%20para%20informarte%20que hemos detectado un posible riesgo de deserción en tu programa académico.%20Estamos aquí para ayudarte.%0A%0APor favor, contacta con tu oficina de programa.%0A%0ASaludos,%0AEquipo de Bienestar Académico`;
 
-  const getRiskColor = (risk) => {
+  const riskColor = (risk) => {
     if (risk >= 70) return "#ff4d4f";
     if (risk >= 40) return "#faad14";
     return "#52c41a";
@@ -48,13 +48,14 @@ export default function StudentDetail({ student, onBack, logout }) {
 
             {/* Derecha: riesgo */}
             <div className="risk-column">
-              <div className="risk-percentage" style={{ color: getRiskColor(student.risk_score) }}>
+              <span className="risk-badge" style={{ backgroundColor: riskColor(student.risk_score) }}>
                 {student.risk_score.toFixed(0)}%
-              </div>
+              </span>
+
               <div className="risk-bar-container">
                 <div 
                   className="risk-bar" 
-                  style={{ width: `${student.risk_score}%`, backgroundColor: getRiskColor(student.risk_score) }}
+                  style={{ width: `${student.risk_score}%`, backgroundColor: riskColor(student.risk_score) }}
                 ></div>
               </div>
             </div>
@@ -218,6 +219,17 @@ export default function StudentDetail({ student, onBack, logout }) {
             font-size: 1.5em;
           }
         }
+
+        .risk-badge {
+        color: white;
+        font-weight: 600;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 1.3em;
+        display: inline-block;
+        text-align: center;
+        min-width: 60px;
+      }
       `}</style>
     </div>
   );

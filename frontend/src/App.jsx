@@ -23,7 +23,53 @@ function App() {
   const [selectedProgram, setSelectedProgram] = useState(null);
   const [search, setSearch] = useState("");
 
-  // Cargar usuario guardado si ya inició sesión
+  // 🔹 Función para traer estudiantes y sus registros de riesgo
+  const fetchStudents = async () => {
+    try {
+      // Traer información básica
+      const studentsData = await apiFetch("http://localhost:3000/students");
+      // Traer registros de riesgo
+      const records = await apiFetch("http://localhost:5002/risk-analysis/get-all-records");
+
+      // Combinar info de estudiantes con riesgo
+      const merged = studentsData.map((student) => {
+        const record = records?.find(r => String(r.student_id) === String(student.student_id));
+        const risk = record ? parseFloat(String(record.risk_score)) : 0;
+        return { ...student, risk_score: risk };
+      });
+
+      // Ordenar por riesgo descendente
+      merged.sort((a, b) => b.risk_score - a.risk_score);
+      setStudents(merged);
+
+      // Generar reporte por programa
+      const programs = {};
+      merged.forEach((s) => {
+        const program = s.academic_program || "Sin programa";
+        if (!programs[program]) programs[program] = { total: 0, count: 0, highRisk: 0, mediumRisk: 0, lowRisk: 0 };
+        programs[program].total += s.risk_score || 0;
+        programs[program].count++;
+        const risk = s.risk_score || 0;
+        if (risk >= 70) programs[program].highRisk++;
+        else if (risk >= 40) programs[program].mediumRisk++;
+        else programs[program].lowRisk++;
+      });
+
+      const programReport = Object.entries(programs).map(([program, data]) => ({
+        program,
+        avgRisk: Number((data.total / data.count).toFixed(2)),
+        highRisk: data.highRisk,
+        mediumRisk: data.mediumRisk,
+        lowRisk: data.lowRisk,
+      }));
+
+      setStatsReport({ generated_at: new Date().toISOString(), programs: programReport });
+    } catch (err) {
+      console.error("Error cargando datos", err);
+    }
+  };
+
+  // 🔹 Cargar usuario guardado si ya inició sesión
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
     const storedRole = localStorage.getItem("role");
@@ -32,93 +78,27 @@ function App() {
     }
   }, []);
 
-  // Traer datos solo si el usuario es staff de bienestar
-useEffect(() => {
-    if (user?.role === "WELLBEING_STAFF" || user?.role === "ACADEMIC_COORDINATOR" || user?.role === "PROFESSOR") {
-      const fetchData = async () => {
-        try {
-          const studentsData = await apiFetch("http://localhost:3000/students");
-          
-          // CORRECCIÓN 1: La variable `records` ahora es el array directamente.
-          const records = await apiFetch("http://localhost:5002/risk-analysis/get-all-records");
+  // 🔹 Cargar estudiantes según rol
+  useEffect(() => {
+    if (!user) return;
 
-          const merged = studentsData.map((student) => {
-            // CORRECCIÓN 2: Buscamos directamente en el array 'records'.
-            // También aseguramos que la comparación de IDs sea robusta.
-            const record = records?.find(
-              (r) => String(r.student_id) === String(student.student_id)
-            );
-            
-            // CORRECCIÓN 3 (Opcional, pero buena práctica): 
-            // La API ya devuelve puntos (ej: 23.67), por lo que
-            // no necesitamos el `.replace(",", ".")` a menos que queramos
-            // ser ultra-seguros ante un cambio futuro de formato.
-            const risk = record
-              ? parseFloat(String(record.risk_score))
-              : 0;
+    if (user.role === "WELLBEING_STAFF") {
+      // Traer datos inicialmente
+      fetchStudents();
 
-            // Consejo para depurar:
-            // console.log(`ID: ${student.student_id}, Encontrado: ${record ? 'Sí' : 'No'}, Riesgo: ${risk}`);
+      // Polling cada 5 segundos
+      const interval = setInterval(() => {
+        fetchStudents();
+      }, 5000);
 
-            return {
-              ...student, risk_score: risk,
-            };
-          });
-
-          // El resto de tu lógica es correcta:
-
-          // Ordenamos de mayor a menor riesgo
-          merged.sort((a, b) => b.risk_score - a.risk_score);
-
-          setStudents(merged);
-          const programs = {};
-          merged.forEach((s) => {
-            const program = s.academic_program || "Sin programa";
-            if (!programs[program]) {
-              programs[program] = {
-                total: 0,
-                count: 0,
-                highRisk: 0,
-                mediumRisk: 0,
-                lowRisk: 0,
-              };
-            }
-            // Aquí usamos s.risk_score directamente, que ya es un número.
-            programs[program].total += s.risk_score || 0;
-            programs[program].count++;
-
-            // Clasificación por nivel
-            const risk = s.risk_score || 0;
-            if (risk >= 70) programs[program].highRisk++;
-            else if (risk >= 40) programs[program].mediumRisk++;
-            else programs[program].lowRisk++;
-          })
-
-          // Generar array de salida
-          const programReport = Object.entries(programs).map(([program, data]) => ({
-            program,
-            avgRisk: Number((data.total / data.count).toFixed(2)),
-            highRisk: data.highRisk,
-            mediumRisk: data.mediumRisk,
-            lowRisk: data.lowRisk,
-          }));
-
-          // Guardar en estado
-          setStatsReport({
-            generated_at: new Date().toISOString(),
-            programs: programReport
-          });
-          console.log("Reporte por programa:", programReport);
-        } catch (err) {
-          console.error("Error cargando datos", err);
-        }
-      };
-
-      fetchData();
+      return () => clearInterval(interval);
+    } else if (user.role === "PROFESSOR") {
+      // Para profesores, solo cargar una vez al montar
+      fetchStudents();
     }
   }, [user]);
 
-  // Filtrado por búsqueda sobre el array ya ordenado
+  // 🔹 Filtrado por búsqueda (para staff y profesor)
   const filteredStudents = students.filter((s) =>
     s.name?.toLowerCase().includes(search.toLowerCase())
   );
@@ -130,10 +110,9 @@ useEffect(() => {
     setUser(null);
   };
 
-  //  Si no hay login → pantalla de login
+  // 🔹 Renderizar vistas
   if (!user) return <Login onLogin={setUser} />;
 
-  //  Vista del Coordinador (solo estadísticas)
   if (user.role === "ACADEMIC_COORDINATOR") {
     return (
       <>
@@ -150,7 +129,6 @@ useEffect(() => {
     );
   }
 
-  //  Vista del Staff de Bienestar (lista de estudiantes)
   if (user.role === "WELLBEING_STAFF") {
     if (selectedStudent) {
       return (
@@ -216,7 +194,6 @@ useEffect(() => {
     );
   }
 
-  //  Vista del Profesor (por ahora sin funcionalidad)
   if (user.role === "PROFESSOR") {
     return (
       <>
@@ -233,7 +210,6 @@ useEffect(() => {
       </>
     );
   }
-
 
   return null;
 }

@@ -1,175 +1,143 @@
+# app.py
 from flask import Flask, request, jsonify
 import requests
 from pymongo import MongoClient
-from bson import ObjectId
-import numpy as np
+import pandas as pd
 from flask_cors import CORS
 import joblib
-import pandas as pd
-from src.routes.alerts import alerts_bp
-from sklearn.linear_model import LinearRegression 
+from src.routes.alerts import alerts_bp  # Importar blueprint
+from sklearn.linear_model import LinearRegression
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, methods=["GET", "POST", "OPTIONS"])
 
-
+# -------------------------------
+# Cargar modelo de riesgo
+# -------------------------------
 try:
     MODEL = joblib.load('risk_model.pkl')
     print("Modelo de Regresión Lineal Múltiple cargado exitosamente en memoria :))))")
 except Exception as e:
     print(f"Error al cargar el modelo: {e}")
-    MODEL = None # Si falla, la API no podrá predecir
+    MODEL = None  # Si falla, la API no podrá predecir
 
+# -------------------------------
 # Conexión a MongoDB Atlas
+# -------------------------------
 MONGO_URI = "mongodb+srv://StayU:5uGz8MahKxt6jMOl@cluster0.2t8eyyc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 client = MongoClient(MONGO_URI)
+db = client["RiskAnalysisDB"]          
+students_collection = db["StudentRecord"]
 
-# Base de datos y colección
-db = client["RiskAnalysisDB"]         # Nombre de la base de datos
-students_collection = db["StudentRecord"]  # Nombre de la colección
-
+# -------------------------------
+# Funciones internas
+# -------------------------------
 def get_records_from_db():
-    # Cargar datos desde MongoDB
     records = list(students_collection.find())
     for record in records:
-        record.pop("_id", None)  # Elimina _id si existe
+        record.pop("_id", None)
     return records
 
 def calculate_risk_score():
     if MODEL is None:
         return jsonify({"error": "El modelo de riesgo no está cargado. No se puede realizar la predicción."}), 500
 
-     # 1. Obtener todos los registros de la base de datos
     records = list(students_collection.find())
     if not records:
         return jsonify({"error": "No hay registros disponibles para el análisis."}), 400
 
-    # 2. Preparar datos para el modelo ML
     data_for_df = []
-    # Lista para mantener los IDs en el mismo orden que las filas del DataFrame
-    ids_for_update = [] 
-    
+    ids_for_update = []
+
     for record in records:
         try:
-        # Crear el diccionario de características. Los nombres de las claves deben coincidir 
-        # exactamente con los utilizados durante el entrenamiento del modelo.
             features = {
                 'average': record['average'],
                 'attendance': record['attendance'],
                 'amount_due': record['amount_due'],
                 'amount_paid': record['amount_paid'],
-                # Convertir booleano 'late_payment' a entero 0 o 1
                 'late_payment': 1 if record['late_payment'] else 0
             }
             data_for_df.append(features)
-            
-            # Guardar los IDs necesarios para la actualización posterior
             ids_for_update.append({
                 '_id': record['_id'],
                 'student_id': record['student_id']
             })
         except KeyError:
-            # Si a un registro le faltan campos clave, lo saltamos y lo notificamos
             print(f"Advertencia: Registro con student_id {record.get('student_id', 'desconocido')} omitido por datos incompletos.")
-            continue 
+            continue
 
     if not data_for_df:
         return jsonify({"error": "No hay registros con datos completos para la predicción ML."}), 400
 
     df_features = pd.DataFrame(data_for_df)
-
-    # 3. Predecir el puntaje de riesgo usando el modelo cargado
     predicted_risk_scores = MODEL.predict(df_features)
 
-    # 4. Actualizar MongoDB y el servicio de usuario
-    # Iterar sobre las predicciones
     for i, score in enumerate(predicted_risk_scores):
-        
         record_ids = ids_for_update[i]
-        
-        # Asegurar que el puntaje sea no negativo (LinearRegression puede dar valores < 0)
-        final_score = max(0.0, float(score)) 
+        final_score = max(0.0, float(score))
         rounded_score = round(final_score, 2)
-        
-        # A. Actualizar el registro en MongoDB
+
+        # Actualizar Mongo
         students_collection.update_one(
             {"_id": record_ids['_id']},
             {"$set": {"risk_score": rounded_score}}
         )
-        
-        # B. Enviar el nivel de riesgo al microservicio de usuario
-        url_user = "http://localhost:3000/students/" + record_ids['student_id']
-        requests.put(url_user, json={"risk_score": rounded_score})
+
+        # Enviar al microservicio de usuario
+        url_user = f"http://localhost:3000/students/{record_ids['student_id']}"
+        try:
+            requests.put(url_user, json={"risk_score": rounded_score})
+        except:
+            print(f"No se pudo actualizar riesgo para {record_ids['student_id']} en microservicio de usuario.")
 
     return jsonify({"mensaje": "Puntajes de riesgo calculados y actualizados con el modelo ML."})
 
-
-
+# -------------------------------
+# Endpoints principales
+# -------------------------------
 @app.route('/risk-analysis/update-data-and-risk', methods=['GET'])
 def update_data_and_risk():
     records = get_records_from_db()
-
     if not records:
-        return jsonify({"error": "No hay registros disponibles para analisis"}), 400
+        return jsonify({"error": "No hay registros disponibles para análisis"}), 400
 
-    # Enviar datos al microservicio "AcademicPlatform"
-    url_academic = "http://localhost:5000/api/university"
-    response_academic = requests.post(url_academic, json=records)
+    try:
+        url_academic = "http://localhost:5000/api/university"
+        updated_data_academic = requests.post(url_academic, json=records).json()
 
-    # Enviar datos al microservicio "PaymentPlatform"
-    url_payment = "http://localhost:5001/api/payment"
-    response_payment = requests.post(url_payment, json=records)
+        url_payment = "http://localhost:5001/api/payment"
+        updated_data_payment = requests.post(url_payment, json=records).json()
+    except Exception as e:
+        return jsonify({"error": f"No se pudieron enviar datos a los microservicios: {e}"}), 500
 
-    # Manejo de respuesta
-    if response_academic.status_code == 200 and response_payment.status_code == 200:
-        updated_data_academic = response_academic.json()
-        updated_data_payment = response_payment.json()
+    updated_data = []
+    for acad, pay in zip(updated_data_academic, updated_data_payment):
+        combined_record = {**acad, **pay}
+        updated_data.append(combined_record)
 
-        # Combinar los datos actualizados
-        updated_data = []
-        for acad, pay in zip(updated_data_academic, updated_data_payment):
-            combined_record = {**acad, **pay}
-            updated_data.append(combined_record)
+        student_id = combined_record.get("student_id")
+        if student_id:
+            record = {
+                "student_id": student_id,
+                "amount_due": combined_record.get("new_amount_due"),
+                "amount_paid": combined_record.get("new_amount_paid"),
+                "late_payment": combined_record.get("new_late_payment"),
+                "average": combined_record.get("new_average"),
+                "attendance": combined_record.get("new_attendance")
+            }
+            students_collection.update_one({"student_id": student_id}, {"$set": record})
 
-        # Actualizar registros en MongoDB
-        for updated_record in updated_data:
-            student_id = updated_record.get("student_id")
-            if student_id:
-
-                record = {
-                    "student_id": student_id,
-                    "amount_due": updated_record.get("new_amount_due"),
-                    "amount_paid": updated_record.get("new_amount_paid"),
-                    "late_payment": updated_record.get("new_late_payment"),
-                    "average": updated_record.get("new_average"),
-                    "attendance": updated_record.get("new_attendance")
-                    }
-
-                students_collection.update_one(
-                    {"student_id": student_id},
-                    {"$set": record}
-                )
-
-        calculate_risk_score()
-        return jsonify({
-            "mensaje": "Datos enviados y actualizados con exito",
-            "updated_data": updated_data
-        })
-
-    else:
-        return jsonify({
-            "error": "No se pudieron actualizar los datos con exito"
-        }), 500
+    calculate_risk_score()
+    return jsonify({"mensaje": "Datos enviados y actualizados con éxito", "updated_data": updated_data})
 
 @app.route('/risk-analysis/create-record', methods=['POST'])
 def create_or_update_record():
     data = request.json
     student_id = data.get("student_id")
-
     if not student_id:
         return jsonify({"error": "student_id es requerido"}), 400
 
-    # Construimos el documento
     record = {
         "student_id": student_id,
         "average": data.get("average"),
@@ -180,14 +148,8 @@ def create_or_update_record():
         "risk_score": data.get("risk_score")
     }
 
-    # Upsert (si ya existe actualiza, si no existe crea)
-    result = students_collection.update_one(
-        {"student_id": student_id},
-        {"$set": record},
-        upsert=True
-    )
-
-    return jsonify({"mensaje": "Registro guardado/actualizado con exito"})
+    students_collection.update_one({"student_id": student_id}, {"$set": record}, upsert=True)
+    return jsonify({"mensaje": "Registro guardado/actualizado con éxito"})
 
 @app.route('/risk-analysis/calculate-risk', methods=['GET'])
 def calculate_risk():
@@ -195,44 +157,29 @@ def calculate_risk():
 
 @app.route('/risk-analysis/get-record/<student_id>', methods=['GET'])
 def get_student_record(student_id):
-    """
-    Busca y devuelve el registro de un estudiante específico por su ID.
-    """
     record = students_collection.find_one({"student_id": student_id})
     if record:
         record.pop("_id", None)
         return jsonify(record)
-    else:
-        return jsonify({"error": f"No se encontró un registro para el student_id: {student_id}"}), 404
-
+    return jsonify({"error": f"No se encontró un registro para el student_id: {student_id}"}), 404
 
 @app.route('/risk-analysis/get-all-records', methods=['GET'])
 def get_all_records():
-    records = get_records_from_db()
-    return jsonify(records)
+    return jsonify(get_records_from_db())
 
-@app.route("/alerts", methods=["POST", "OPTIONS"])
-def handle_alert():
-    if request.method == "OPTIONS":
-        # Esto responde al preflight request del navegador
-        response = jsonify({"status": "preflight ok"})
-        response.headers.add("Access-Control-Allow-Origin", "*")
-        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
-        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
-        return response, 200
+# -------------------------------
+# Registrar blueprint alerts con url_prefix
+# -------------------------------
+app.register_blueprint(alerts_bp, url_prefix='/alerts', strict_slashes=False)
 
-    try:
-        data = request.get_json()
-        print(" Alerta recibida desde frontend:", data)
-
-        # Aquí luego agregaremos la lógica para actualizar el risk_score
-        return jsonify({"message": "Alerta recibida correctamente"}), 200
-
-    except Exception as e:
-        print(" Error procesando alerta:", e)
-        return jsonify({"error": str(e)}), 500
-
-app.register_blueprint(alerts_bp)
-
+# -------------------------------
+# Ejecutar aplicación
+# -------------------------------
 if __name__ == '__main__':
+    with app.app_context():
+        print("Calculando riesgo inicial para todos los estudiantes...")
+        calculate_risk_score()
+    print("Rutas registradas en Flask:")
+    for rule in app.url_map.iter_rules():
+        print(rule)
     app.run(port=5002, debug=True)
