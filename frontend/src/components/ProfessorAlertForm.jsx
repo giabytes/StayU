@@ -10,6 +10,8 @@ export default function ProfessorAlertForm({ student, onSubmit, onBack }) {
     date: "",
   });
 
+  const [message, setMessage] = useState(null);
+
   useEffect(() => {
     // Autocompletar fecha actual en formato YYYY-MM-DD
     const today = new Date().toISOString().split("T")[0];
@@ -27,8 +29,8 @@ export default function ProfessorAlertForm({ student, onSubmit, onBack }) {
     try {
         const user = JSON.parse(localStorage.getItem("user"));
         if (!user) {
-        alert("No se encontró información del usuario logueado.");
-        return;
+            alert("No se encontró información del usuario logueado.");
+            return;
         }
 
         const payload = {
@@ -56,13 +58,21 @@ export default function ProfessorAlertForm({ student, onSubmit, onBack }) {
         throw new Error(`Error del servidor: ${response.status}`);
         }
 
+
         const data = await response.json();
         console.log("Respuesta del servidor:", data);
 
-        alert(
-        ` Alerta enviada exitosamente.\nEl riesgo del estudiante ha sido actualizado a ${data.new_risk_score ?? 'un nuevo valor'}.`
-        );
-        onBack(); // regresa a la vista anterior
+         // Mostrar mensaje de éxito inline
+        setMessage({
+            type: "success",
+            text: `Alerta enviada exitosamente. Riesgo actualizado a ${data.new_risk_score ?? 'un nuevo valor'}.`,
+        });
+
+        // Opcional: cerrar automáticamente después de unos segundos
+        setTimeout(() => {
+            setMessage(null);
+            onBack();
+        }, 5000);
 
     } catch (error) {
         console.error("Error enviando la alerta:", error);
@@ -176,6 +186,13 @@ export default function ProfessorAlertForm({ student, onSubmit, onBack }) {
             </button>
           </div>
         </form>
+
+        {/* Mensaje inline */}
+        {message && (
+          <div className={`message ${message.type}`}>
+            {message.text}
+          </div>
+        )}
       </div>
 
       <style>{`
@@ -256,6 +273,30 @@ export default function ProfessorAlertForm({ student, onSubmit, onBack }) {
 
         .submit-btn:hover {
           background-color: #0d326aff;
+        }
+
+        .message {
+          margin-top: 20px;
+          padding: 12px 16px;
+          border-radius: 8px;
+          font-weight: 600;
+          text-align: center;
+          animation: fadein 0.3s ease;
+        }
+
+        .message.success {
+          background-color: #d4edda;
+          color: #155724;
+        }
+
+        .message.error {
+          background-color: #f8d7da;
+          color: #721c24;
+        }
+
+        @keyframes fadein {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>
