@@ -33,27 +33,39 @@ function App() {
   }, []);
 
   // Traer datos solo si el usuario es staff de bienestar
-  useEffect(() => {
+useEffect(() => {
     if (user?.role === "WELLBEING_STAFF" || user?.role === "ACADEMIC_COORDINATOR" || user?.role === "PROFESSOR") {
       const fetchData = async () => {
         try {
           const studentsData = await apiFetch("http://localhost:3000/students");
+          
+          // CORRECCIÓN 1: La variable `records` ahora es el array directamente.
           const records = await apiFetch("http://localhost:5002/risk-analysis/get-all-records");
 
           const merged = studentsData.map((student) => {
-            const record = records?.updated_data?.find(
-              (r) => r.student_id === student.student_id
+            // CORRECCIÓN 2: Buscamos directamente en el array 'records'.
+            // También aseguramos que la comparación de IDs sea robusta.
+            const record = records?.find(
+              (r) => String(r.student_id) === String(student.student_id)
             );
-          
+            
+            // CORRECCIÓN 3 (Opcional, pero buena práctica): 
+            // La API ya devuelve puntos (ej: 23.67), por lo que
+            // no necesitamos el `.replace(",", ".")` a menos que queramos
+            // ser ultra-seguros ante un cambio futuro de formato.
             const risk = record
-              ? parseFloat(String(record.risk_score).replace(",", "."))
+              ? parseFloat(String(record.risk_score))
               : 0;
-          console.log("App.jsx - estudiantes cargados:", students);
 
-          return {
-            ...student, risk_score: risk ?? 0,
-          };
-        });
+            // Consejo para depurar:
+            // console.log(`ID: ${student.student_id}, Encontrado: ${record ? 'Sí' : 'No'}, Riesgo: ${risk}`);
+
+            return {
+              ...student, risk_score: risk,
+            };
+          });
+
+          // El resto de tu lógica es correcta:
 
           // Ordenamos de mayor a menor riesgo
           merged.sort((a, b) => b.risk_score - a.risk_score);
@@ -71,11 +83,12 @@ function App() {
                 lowRisk: 0,
               };
             }
-            programs[program].total += s.risk_score || s.risk_score || 0;
+            // Aquí usamos s.risk_score directamente, que ya es un número.
+            programs[program].total += s.risk_score || 0;
             programs[program].count++;
 
             // Clasificación por nivel
-            const risk = s.risk_score || s.risk_score || 0;
+            const risk = s.risk_score || 0;
             if (risk >= 70) programs[program].highRisk++;
             else if (risk >= 40) programs[program].mediumRisk++;
             else programs[program].lowRisk++;
@@ -92,8 +105,8 @@ function App() {
 
           // Guardar en estado
           setStatsReport({
-          generated_at: new Date().toISOString(),
-          programs: programReport
+            generated_at: new Date().toISOString(),
+            programs: programReport
           });
           console.log("Reporte por programa:", programReport);
         } catch (err) {
@@ -103,7 +116,7 @@ function App() {
 
       fetchData();
     }
-  }, [user])
+  }, [user]);
 
   // Filtrado por búsqueda sobre el array ya ordenado
   const filteredStudents = students.filter((s) =>
