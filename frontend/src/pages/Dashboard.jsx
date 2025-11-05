@@ -36,7 +36,7 @@ export default function Dashboard() {
           merged.map(async s => {
             try {
               const rec = await getRecord(s.student_id);
-              // Recuerda que tu DB puede usar field risk_score o risk_level; intentamos ambos.
+              // Recuerda que tu DB puede usar field risk_score o risk_score; intentamos ambos.
               return { ...s, risk_score: rec.risk_score ?? rec.risk_score ?? 0 };
             } catch (err) {
               return { ...s, risk_score: 0 };
