@@ -11,7 +11,7 @@ def normalize_risk_to_percentage(rec):
     Soporta claves 'risk_level' o 'risk_score'.
     Si no existe, devuelve None.
     """
-    r = rec.get("risk_level")
+    r = rec.get("risk_score")
     if r is None:
         r = rec.get("risk_score")
     if r is None:

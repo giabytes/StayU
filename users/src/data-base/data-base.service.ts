@@ -23,7 +23,7 @@ export class DataBaseService
     amount_due: number;
     amount_paid: number;
     late_payment: boolean;
-    risk_level: number;
+    risk_score: number;
   }) {
     //  simple validation de attendance
     if (data.attendance < 0 || data.attendance > 100) {
@@ -54,7 +54,7 @@ export class DataBaseService
       amount_due: number;
       amount_paid: number;
       late_payment: boolean;
-      risk_level: number;
+      risk_score: number;
     }>,
   ) {
     return this.studentRecord.update({
@@ -80,7 +80,7 @@ export class DataBaseService
     birth_date?: string;
     citizen_id?: string;
     phone_number?: string;
-    risk_level?: number;
+    risk_score?: number;
   }) {
     return this.student.create({ data });
   }
@@ -104,7 +104,7 @@ export class DataBaseService
       birth_date?: string;
       citizen_id?: string;
       phone_number?: string;
-      risk_level?: number;
+      risk_score?: number;
     }>,
   ) {
     return this.student.update({
@@ -205,4 +205,37 @@ export class DataBaseService
   async deleteWellbeingStaff(id: string) {
     return this.wellbeingStaff.delete({ where: { id } });
   }
+
+  // --- Métodos para User (solo roles autenticables) ---
+async createUser(data: { email: string; password: string; name?: string; role: any }) {
+  return this.user.create({ data });
+}
+
+async getUserByEmail(email: string) {
+  return this.user.findUnique({
+    where: { email },
+  });
+}
+
+async linkUserToRole(userId: string, roleId: string, role: string) {
+  switch (role) {
+    case 'PROFESSOR':
+      return this.user.update({
+        where: { id: userId },
+        data: { professorId: roleId },
+      });
+    case 'ACADEMIC_COORDINATOR':
+      return this.user.update({
+        where: { id: userId },
+        data: { academicCoordinatorId: roleId },
+      });
+    case 'WELLBEING_STAFF':
+      return this.user.update({
+        where: { id: userId },
+        data: { wellbeingStaffId: roleId },
+      });
+    default:
+      throw new Error('Rol no autenticable');
+  }
+}
 }

@@ -6,10 +6,12 @@ import numpy as np
 from flask_cors import CORS
 import joblib
 import pandas as pd
+from src.routes.alerts import alerts_bp
 from sklearn.linear_model import LinearRegression 
 
 app = Flask(__name__)
-CORS(app) 
+CORS(app, resources={r"/*": {"origins": "*"}}, methods=["GET", "POST", "OPTIONS"])
+
 
 try:
     MODEL = joblib.load('risk_model.pkl')
@@ -97,7 +99,7 @@ def calculate_risk_score():
         
         # B. Enviar el nivel de riesgo al microservicio de usuario
         url_user = "http://localhost:3000/students/" + record_ids['student_id']
-        requests.put(url_user, json={"risk_level": rounded_score})
+        requests.put(url_user, json={"risk_score": rounded_score})
 
     return jsonify({"mensaje": "Puntajes de riesgo calculados y actualizados con el modelo ML."})
 
@@ -208,6 +210,29 @@ def get_student_record(student_id):
 def get_all_records():
     records = get_records_from_db()
     return jsonify(records)
+
+@app.route("/alerts", methods=["POST", "OPTIONS"])
+def handle_alert():
+    if request.method == "OPTIONS":
+        # Esto responde al preflight request del navegador
+        response = jsonify({"status": "preflight ok"})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        return response, 200
+
+    try:
+        data = request.get_json()
+        print(" Alerta recibida desde frontend:", data)
+
+        # Aquí luego agregaremos la lógica para actualizar el risk_score
+        return jsonify({"message": "Alerta recibida correctamente"}), 200
+
+    except Exception as e:
+        print(" Error procesando alerta:", e)
+        return jsonify({"error": str(e)}), 500
+
+app.register_blueprint(alerts_bp)
 
 if __name__ == '__main__':
     app.run(port=5002, debug=True)

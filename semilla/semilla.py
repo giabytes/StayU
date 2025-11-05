@@ -10,7 +10,7 @@ def generate_student():
     matricula_promedio = 6000000  # valor promedio matrícula en universidad privada de Medellín (COP)
     desviacion_matricula = 1000000
     
-    num_students = 50
+    num_students = 150
     students = []
     records = []
 
@@ -44,7 +44,7 @@ def generate_student():
             "birth_date": str(fake.date_of_birth(minimum_age=18, maximum_age=30).isoformat()),
             "citizen_id": str(fake.unique.random_int(min=10000000, max=99999999)),
             "phone_number": str(fake.phone_number()),
-            "risk_level": 0.0
+            "risk_score": 0.0
         }
         students.append(student)
         

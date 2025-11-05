@@ -1,0 +1,18 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model ProfessorAlert {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  studentId      String   @db.ObjectId
+  professorId    String   @db.ObjectId
+  date           DateTime @default(now())
+  urgency        String
+  formData       Json     // aquí se guarda todo el JSON con las respuestas del profesor
+}
+

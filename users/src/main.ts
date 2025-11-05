@@ -8,6 +8,8 @@ async function bootstrap() {
     origin: 'http://localhost:5173', // frontend
   });
 
-  await app.listen(3000);
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+  console.log(` Users microservice running on: http://localhost:${port}`);
 }
 bootstrap();

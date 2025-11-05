@@ -12,11 +12,26 @@ datasource db {
   provider = "mongodb"
   url      = env("DATABASE_URL")
 }
+
 enum Role {
   STUDENT
   PROFESSOR
   ACADEMIC_COORDINATOR
   WELLBEING_STAFF
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  password  String
+  name      String?
+  role      Role
+  createdAt DateTime @default(now())
+
+  // relaciones opcionales con los perfiles (unidireccional para evitar ciclos)
+  professorId           String? @db.ObjectId
+  academicCoordinatorId  String? @db.ObjectId
+  wellbeingStaffId       String? @db.ObjectId
 }
 
 model Professor {
@@ -40,6 +55,7 @@ model WellbeingStaff {
   role  Role
 }
 
+
 model Student {
   id              String  @id @default(auto()) @map("_id") @db.ObjectId
   student_id      String  @unique
@@ -50,7 +66,7 @@ model Student {
   birth_date      String? // Corresponde a 'Fecha de nacimiento', se puede guardar como String o DateTime
   citizen_id      String? // Corresponde a 'Cédula de ciudadanía'
   phone_number    String? // Corresponde a 'Celular'
-  risk_level      Float?  // 'Riesgo de deserción'
+  risk_score      Float?  // 'Riesgo de deserción'
 }
 
 model StudentRecord {
@@ -61,5 +77,5 @@ model StudentRecord {
   amount_due    Float
   amount_paid   Float
   late_payment  Boolean
-  risk_level    Float?
+  risk_score    Float?
 }

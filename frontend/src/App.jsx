@@ -1,194 +1,228 @@
 // App.jsx
-
+import { BrowserRouter as Router } from "react-router-dom";
 import React, { useEffect, useState } from "react";
+import Login from "./pages/Login";
 import StudentCard from "./components/StudentCard";
 import StudentDetail from "./components/StudentDetail";
-import ProgramStats from "./components/ProgramStats"; // 🔹 Importar nuevo componente
+import ProgramStats from "./components/ProgramStats";
+import { apiFetch } from "./utils/api";
 import "./App.css";
+import AppHeader from "./components/AppHeader";
+import ProfessorDashboard from "./components/ProfessorDashboard";
+import RiskByCareer from "./components/RiskByCareer";
 
-// 🔹 Constantes para las vistas
 const VIEW_STUDENTS = "students";
 const VIEW_STATS = "stats";
 
 function App() {
+  const [user, setUser] = useState(null);
   const [students, setStudents] = useState([]);
   const [selectedStudent, setSelectedStudent] = useState(null);
-  // Eliminamos programRisk (lo obtiene ProgramStats), pero añadimos la vista
-  const [currentView, setCurrentView] = useState(VIEW_STUDENTS); // 🔹 Nuevo estado de vista
-  const [statsReport, setStatsReport] = useState(null); // 🔹 Para guardar el reporte completo
-  const [selectedProgram, setSelectedProgram] = useState(null); // 🔹 Para el detalle de programa
+  const [currentView, setCurrentView] = useState(VIEW_STUDENTS);
+  const [statsReport, setStatsReport] = useState(null);
+  const [selectedProgram, setSelectedProgram] = useState(null);
+  const [search, setSearch] = useState("");
 
+  // Cargar usuario guardado si ya inició sesión
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // 1. Traer estudiantes
-        const resStudents = await fetch("http://localhost:3000/students", {
-          method: "GET"
-        });
-        const studentsData = await resStudents.json();
+    const storedToken = localStorage.getItem("token");
+    const storedRole = localStorage.getItem("role");
+    if (storedToken && storedRole) {
+      setUser({ role: storedRole });
+    }
+  }, []);
 
-        // 2. Traer records de riesgo (y disparar cálculo si necesario, como estaba)
-        const resRecords = await fetch("http://localhost:5002/risk-analysis/calculate-risk", {
-          method: "GET"
-        });
-        await resRecords.json();
+  // Traer datos solo si el usuario es staff de bienestar
+  useEffect(() => {
+    if (user?.role === "WELLBEING_STAFF" || user?.role === "ACADEMIC_COORDINATOR" || user?.role === "PROFESSOR") {
+      const fetchData = async () => {
+        try {
+          const studentsData = await apiFetch("http://localhost:3000/students");
+          const records = await apiFetch("http://localhost:5002/risk-analysis/get-all-records");
 
-        const resUpdated = await fetch("http://localhost:5002/risk-analysis/get-all-records", {
-          method: "GET"
-        });
-        const updatedData = await resUpdated.json();
+          const merged = studentsData.map((student) => {
+            const record = records?.updated_data?.find(
+              (r) => r.student_id === student.student_id
+            );
+          
+            const risk = record
+              ? parseFloat(String(record.risk_score).replace(",", "."))
+              : 0;
+          console.log("App.jsx - estudiantes cargados:", students);
 
-        // Verifica en consola cómo viene la respuesta
-        console.log("Estudiantes DB:", studentsData);
-        console.log("Datos riesgo DB:", updatedData);
-
-        // 3. Hacer merge por student_id
-        const merged = studentsData.map((student) => {
-          const record = updatedData?.updated_data?.find(
-            (r) => r.student_id === student.student_id
-          );
-          // Usamos 'risk_level' de los datos originales o calculados
-          const risk = record?.risk_level ?? 0; 
           return {
-            ...student,
-            risk_level: risk, // Usar risk_level para el StudentCard
+            ...student, risk_score: risk ?? 0,
           };
         });
 
-        setStudents(merged);
+          // Ordenamos de mayor a menor riesgo
+          merged.sort((a, b) => b.risk_score - a.risk_score);
 
-        // 4. Calcular riesgo por programa académico
-const riskByProgram = {};
-merged.forEach((s) => {
-  if (!riskByProgram[s.academic_program]) {
-    riskByProgram[s.academic_program] = { total: 0, count: 0 };
-  }
-  riskByProgram[s.academic_program].total += s.risk_level; // sigue en [0,1]
-  riskByProgram[s.academic_program].count += 1;
-});
+          setStudents(merged);
+          const programs = {};
+          merged.forEach((s) => {
+            const program = s.academic_program || "Sin programa";
+            if (!programs[program]) {
+              programs[program] = {
+                total: 0,
+                count: 0,
+                highRisk: 0,
+                mediumRisk: 0,
+                lowRisk: 0,
+              };
+            }
+            programs[program].total += s.risk_score || s.risk_score || 0;
+            programs[program].count++;
 
-// Transformar en array con promedio
-const programData = Object.entries(riskByProgram).map(([program, data]) => ({
-  program,
-  avgRisk: Math.round((data.total / data.count)), // convertir a porcentaje
-}));
+            // Clasificación por nivel
+            const risk = s.risk_score || s.risk_score || 0;
+            if (risk >= 70) programs[program].highRisk++;
+            else if (risk >= 40) programs[program].mediumRisk++;
+            else programs[program].lowRisk++;
+          })
 
-setProgramRisk(programData);
+          // Generar array de salida
+          const programReport = Object.entries(programs).map(([program, data]) => ({
+            program,
+            avgRisk: Number((data.total / data.count).toFixed(2)),
+            highRisk: data.highRisk,
+            mediumRisk: data.mediumRisk,
+            lowRisk: data.lowRisk,
+          }));
 
-        // NOTA: Se elimina la lógica anterior de cálculo de riesgo por programa
-        // porque ahora viene del endpoint /latest
-        
-      } catch (err) {
-        console.error("Error cargando datos", err);
-        // Si el reporte falla, intentamos generarlo (opcional, para inicialización)
-        // Opcional: Llamar a /generate si /latest falla al inicio
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  // 🔹 Función para cambiar a la vista de estudiantes
-  const showStudents = () => {
-    setCurrentView(VIEW_STUDENTS);
-    setSelectedProgram(null);
-  }
-
-  // 🔹 Función para cambiar a la vista de estadísticas
-  const showStats = () => {
-    setCurrentView(VIEW_STATS);
-    setSelectedProgram(null);
-  }
-
-  // 🔹 Función para ver el detalle de un programa (usada en ProgramStats)
-  const viewProgramDetail = (programData) => {
-    setSelectedProgram(programData);
-  }
-
-
-  // --- Renderizado Condicional ---
-
-  let content;
-  
-  // 1. Detalle del estudiante
-  if (selectedStudent) {
-    content = (
-      <StudentDetail 
-        student={selectedStudent} 
-        onBack={() => setSelectedStudent(null)} 
-      />
-    );
-  } 
-  // 2. Vista de Estadísticas (General o Detalle de Programa)
-  else if (currentView === VIEW_STATS) {
-    content = (
-      <ProgramStats
-        report={statsReport}
-        onBack={showStudents} // Vuelve a la lista de estudiantes
-        selectedProgram={selectedProgram}
-        onSelectProgram={viewProgramDetail}
-        onBackToGeneral={() => setSelectedProgram(null)} // Vuelve a la general
-      />
-    );
-  }
-  // 3. Lista de Estudiantes (vista por defecto)
-  else { 
-    content = (
-      <div className="main-content">
-        <div className="students-list">
-          <h2>Estudiantes en riesgo de deserción</h2>
-          {students.map((s) => (
-            <StudentCard
-              key={s.student_id}
-              student={s}
-              onClick={() => setSelectedStudent(s)}
-            />
-          ))}
-        </div>
-        {/* Eliminamos la sección program-risk de App.jsx */}
-      </div>
-    );
-  }
-
-
-  return (
-    <div className="app-container">
-      <header className="app-header">
-        <h1>StayU</h1>
-        <div className="nav-buttons">
-            <button 
-                className={`nav-btn ${currentView === VIEW_STUDENTS ? 'active' : ''}`}
-                onClick={showStudents}
-            >
-                Estudiantes
-            </button>
-            <button 
-                className={`nav-btn ${currentView === VIEW_STATS ? 'active' : ''}`}
-                onClick={showStats}
-            >
-                Estadísticas
-            </button>
-        </div>
-        <input className="search-input" placeholder="Buscar estudiante" />
-        <button className="logout-btn">Cerrar sesión</button>
-      </header>
-      
-      {content}
-
-      {/* 🔹 Estilos para los botones de navegación (sugeridos) */}
-      <style jsx>{`
-        .nav-buttons {
-          display: flex;
-          gap: 10px;
-          margin-left: 20px;
+          // Guardar en estado
+          setStatsReport({
+          generated_at: new Date().toISOString(),
+          programs: programReport
+          });
+          console.log("Reporte por programa:", programReport);
+        } catch (err) {
+          console.error("Error cargando datos", err);
         }
-        .nav-btn.active {
-          background-color: #646cff;
-          color: white;
-        }
-      `}</style>
-    </div>
+      };
+
+      fetchData();
+    }
+  }, [user])
+
+  // Filtrado por búsqueda sobre el array ya ordenado
+  const filteredStudents = students.filter((s) =>
+    s.name?.toLowerCase().includes(search.toLowerCase())
   );
+
+  // 🔹 Logout
+  const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    setUser(null);
+  };
+
+  //  Si no hay login → pantalla de login
+  if (!user) return <Login onLogin={setUser} />;
+
+  //  Vista del Coordinador (solo estadísticas)
+  if (user.role === "ACADEMIC_COORDINATOR") {
+    return (
+      <>
+        <AppHeader role="Coordinador" onLogout={logout} />
+        <div className="app-container">
+          <ProgramStats
+            report={statsReport}
+            selectedProgram={selectedProgram}
+            onSelectProgram={setSelectedProgram}
+            onBackToGeneral={() => setSelectedProgram(null)}
+          />
+        </div>
+      </>
+    );
+  }
+
+  //  Vista del Staff de Bienestar (lista de estudiantes)
+  if (user.role === "WELLBEING_STAFF") {
+    if (selectedStudent) {
+      return (
+        <>
+          <AppHeader
+            role="Staff de Bienestar"
+            searchValue={search}
+            onSearchChange={setSearch}
+            onLogout={logout}
+          />
+          <div className="app-container">
+            <StudentDetail
+              student={selectedStudent}
+              onBack={() => setSelectedStudent(null)}
+            />
+          </div>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <AppHeader
+          role="Staff de Bienestar"
+          searchValue={search}
+          onSearchChange={setSearch}
+          onLogout={logout}
+        />
+        <div className="app-container">
+          <div className="main-content">
+            <div className="students-list">
+              <h2>Estudiantes en riesgo de deserción</h2>
+              {filteredStudents.map((s) => (
+                <StudentCard
+                  key={s.student_id}
+                  student={s}
+                  onClick={() => setSelectedStudent(s)}
+                />
+              ))}
+            </div>
+
+            <div className="program-risk-panel">
+              <RiskByCareer data={statsReport?.programs} />
+            </div>
+          </div>
+
+          <style>{`
+            .main-content {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              gap: 30px;
+            }
+            .students-list {
+              flex: 3;
+            }
+            .program-risk-panel {
+              flex: 1;
+            }
+          `}</style>
+        </div>
+      </>
+    );
+  }
+
+  //  Vista del Profesor (por ahora sin funcionalidad)
+  if (user.role === "PROFESSOR") {
+    return (
+      <>
+        <AppHeader role="Profesor" onLogout={logout} />
+        <div className="app-container">
+          <ProfessorDashboard
+            students={students}
+            logout={logout}
+            onUpdateStudentRisk={(studentId, data) => {
+              console.log("Actualizar riesgo:", studentId, data);
+            }}
+          />
+        </div>
+      </>
+    );
+  }
+
+
+  return null;
 }
 
 export default App;

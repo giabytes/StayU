@@ -2,10 +2,9 @@ import React from "react";
 
 export default function StudentCard({ student, onClick }) {
   const getRiskColor = (risk) => {
-    if (risk >= 0 && risk < 30.0) return "green";
-    if (risk >= 30.0 && risk < 50.0) return "orange";
-    if (risk >= 50.0 && risk <= 100) return "red";
-    return "black";
+  if (risk >= 70) return "red";      // alto riesgo
+  if (risk >= 40) return "orange";   // medio riesgo
+  return "green";                    // bajo riesgo
   };
 
   return (
@@ -20,8 +19,8 @@ export default function StudentCard({ student, onClick }) {
         <p>{student.academic_program}</p>
       </div>
       <div className="risk">
-        <span style={{ color: getRiskColor(student.risk_level) }}>
-          {(student.risk_level).toFixed(0)}%
+        <span style={{ color: getRiskColor(student.risk_score) }}>
+          {(student.risk_score).toFixed(0)}%
         </span>
       </div>
     </div>
