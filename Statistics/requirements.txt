@@ -1,0 +1,8 @@
+# requirements.txt
+# ------------------------------------
+# Dependencias web y de red (Flask y CORS)
+Flask==3.0.3
+Flask-Cors==4.0.0
+
+# Dependencias de base de datos
+pymongo==4.6.1
