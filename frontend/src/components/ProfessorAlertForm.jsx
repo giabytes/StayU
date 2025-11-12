@@ -48,7 +48,7 @@ export default function ProfessorAlertForm({ student, onSubmit, onBack }) {
 
         console.log("Enviando alerta al backend:", payload);
 
-        const response = await fetch("/api/risk/alerts", {
+        const response = await fetch("/api/risk-analysis/alerts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
