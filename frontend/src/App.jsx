@@ -27,9 +27,9 @@ function App() {
   const fetchStudents = async () => {
     try {
       // Traer información básica
-      const studentsData = await apiFetch("http://localhost:3000/students");
+      const studentsData = await apiFetch("/api/user/students");
       // Traer registros de riesgo
-      const records = await apiFetch("http://localhost:5002/risk-analysis/get-all-records");
+      const records = await apiFetch("/api/risk-analysis/get-all-records");
 
       // Combinar info de estudiantes con riesgo
       const merged = studentsData.map((student) => {
