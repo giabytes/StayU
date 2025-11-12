@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE = import.meta.env.VITE_API_RISK || "http://localhost:5002/risk-analysis";
+const BASE = import.meta.env.VITE_API_RISK || "/api/risk";
 
 export const updateAndGetRiskData = async () => {
   const res = await axios.get(`${BASE}/update-data-and-risk`);
