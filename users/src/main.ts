@@ -8,7 +8,6 @@ async function bootstrap() {
     origin: [
       'http://localhost:5173',
       'http://54.210.10.174', // IP pública de tu instancia
-      'https://tudominio.com', // (si vas a usar dominio)
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
