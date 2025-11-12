@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE = import.meta.env.VITE_API_USERS || "http://localhost:3000";
+const BASE = import.meta.env.VITE_API_USERS || "/api/user/auth/login";
 
 export const getStudents = async () => {
   // ajusta la ruta si en tu API de Users es distinta (ej: /users or /students)
