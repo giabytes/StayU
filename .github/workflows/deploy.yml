@@ -1,0 +1,105 @@
+name: Deploy to EC2 (no Docker)
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Deploy to EC2 and restart services
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e
+
+            cd /home/ubuntu/StayU
+            git pull origin main
+
+            # WRITE .env files (from GitHub secrets)
+            cat > /home/ubuntu/StayU/AcademicPlatform/.env <<ENV
+PORT=5000
+DATABASE_URL=${{ secrets.ACADEMIC_DATABASE_URL }}
+ENV
+
+            cat > /home/ubuntu/StayU/PaymentPlatform/.env <<ENV
+PORT=5001
+DATABASE_URL=${{ secrets.PAYMENT_DATABASE_URL }}
+ENV
+
+            cat > /home/ubuntu/StayU/RiskAnalysis/.env <<ENV
+PORT=5002
+DATABASE_URL=${{ secrets.RISK_DATABASE_URL }}
+ENV
+
+            cat > /home/ubuntu/StayU/Statistics/.env <<ENV
+PORT=5003
+DATABASE_URL=${{ secrets.STATISTICS_DATABASE_URL }}
+ENV
+
+            cat > /home/ubuntu/StayU/users/.env <<ENV
+PORT=3000
+DATABASE_URL=${{ secrets.USERS_DATABASE_URL }}
+ENV
+
+            # Instalar dependencias si cambiaron
+            # Flask (solo reinstala si requirements cambió)
+            cd /home/ubuntu/StayU/AcademicPlatform
+            python3 -m venv venv || true
+            source venv/bin/activate
+            pip install -r requirements.txt || true
+            deactivate
+
+            cd /home/ubuntu/StayU/PaymentPlatform
+            python3 -m venv venv || true
+            source venv/bin/activate
+            pip install -r requirements.txt || true
+            deactivate
+
+            cd /home/ubuntu/StayU/RiskAnalysis
+            python3 -m venv venv || true
+            source venv/bin/activate
+            pip install -r requirements.txt || true
+            deactivate
+
+            cd /home/ubuntu/StayU/Statistics
+            python3 -m venv venv || true
+            source venv/bin/activate
+            pip install -r requirements.txt || true
+            deactivate
+
+            # Node services
+            cd /home/ubuntu/StayU/users
+            npm install
+            npm run build
+
+            cd /home/ubuntu/StayU/frontend
+            npm install
+            npm run build
+            sudo rm -rf /var/www/html/*
+            sudo cp -r build/* /var/www/html/
+            sudo chown -R www-data:www-data /var/www/html
+
+            # Restart systemd services
+            sudo systemctl daemon-reload
+            sudo systemctl restart academic.service || true
+            sudo systemctl restart payment.service || true
+            sudo systemctl restart risk.service || true
+            sudo systemctl restart statistics.service || true
+            sudo systemctl restart users.service || true
+
+            sudo systemctl status academic.service --no-pager
+            sudo systemctl status users.service --no-pager
+
+            # reload nginx
+            sudo nginx -t
+            sudo systemctl reload nginx
+          EOF
